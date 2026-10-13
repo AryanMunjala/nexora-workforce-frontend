@@ -47,3 +47,10 @@
 .table-wrap tbody tr:has(.select-column button:hover){background:#fafaff}
 @media(max-width:700px){.bulk-toolbar{align-items:flex-start;flex-direction:column}.bulk-toolbar>div{width:100%}.directory-result-actions{gap:8px;flex-wrap:wrap}.pagination{gap:10px}.pagination-btn{padding:8px}.page-size-control{font-size:9px}}
 @media print{.bulk-toolbar,.pagination,.select-column,.page-size-control{display:none!important}}
+
+/* CSV import/export and enterprise toolbar */
+.directory-head-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.visually-hidden-input{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+.directory-head-actions .btn{white-space:nowrap}
+@media(max-width:900px){.directory-head{align-items:flex-start;flex-direction:column}.directory-head-actions{justify-content:flex-start;width:100%}}
+@media(max-width:560px){.directory-head-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.directory-head-actions .btn{width:100%;padding:10px 7px!important;font-size:9px!important}.directory-head-actions .export-btn{grid-column:1/-1}}

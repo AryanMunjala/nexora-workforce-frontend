@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, ArrowRight, BarChart3, BriefcaseBusiness, Building2, CheckCircle2, CircleAlert, Download, Search, Users, UserRoundCheck, UserRoundX, CalendarClock, RefreshCw, Sparkles, X, Printer, Eye, UserPlus } from 'lucide-react';
+import { Activity, ArrowRight, BarChart3, BriefcaseBusiness, Building2, CheckCircle2, CircleAlert, Download, Search, Users, UserRoundCheck, UserRoundX, CalendarClock, RefreshCw, Sparkles, X, Printer, Eye, UserPlus, ChevronLeft, ChevronRight, CheckSquare, Square, Trash2 } from 'lucide-react';
 import { employeeApi, apiError } from './api.js';
 
 const empty = { fullName: '', email: '', department: 'Engineering', jobTitle: '', status: 'ACTIVE' };
@@ -23,6 +23,9 @@ export default function App() {
   const [notice, setNotice] = useState('');
   const [view, setView] = useState('directory');
   const [profile, setProfile] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
@@ -51,6 +54,11 @@ export default function App() {
     const getValue = (e) => sortBy === 'name' ? e.fullName : sortBy === 'department' ? e.department : sortBy === 'status' ? e.status : e.jobTitle;
     return [...rows].sort((a, b) => String(getValue(a) || '').localeCompare(String(getValue(b) || '')) * (sortDirection === 'asc' ? 1 : -1));
   }, [employees, search, departmentFilter, statusFilter, sortBy, sortDirection]);
+  useEffect(() => { setPage(1); }, [search, departmentFilter, statusFilter, pageSize]);
+  useEffect(() => { setPage((current) => Math.min(current, pageCount)); }, [pageCount]);
+  const pageCount = Math.max(1, Math.ceil(filteredEmployees.length / pageSize));
+  const pageEmployees = useMemo(() => filteredEmployees.slice((page - 1) * pageSize, page * pageSize), [filteredEmployees, page, pageSize]);
+  const visibleSelected = pageEmployees.length > 0 && pageEmployees.every((e) => selectedIds.includes(e.id));
   const departmentStats = useMemo(() => departments.map((department) => ({
     department, count: employees.filter((e) => e.department === department).length,
     active: employees.filter((e) => e.department === department && e.status === 'ACTIVE').length,
@@ -73,6 +81,20 @@ export default function App() {
   }, [employees, departmentStats, stats, dataQuality]);
 
   function change(e) { setForm({ ...form, [e.target.name]: e.target.value }); }
+  function toggleSelected(id) { setSelectedIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]); }
+  function togglePageSelection() { setSelectedIds((current) => visibleSelected ? current.filter((id) => !pageEmployees.some((e) => e.id === id)) : [...new Set([...current, ...pageEmployees.map((e) => e.id)])]); }
+  function clearSelection() { setSelectedIds([]); }
+  async function bulkDelete() {
+    const rows = employees.filter((e) => selectedIds.includes(e.id));
+    if (!rows.length || !window.confirm(`Delete ${rows.length} selected employee record${rows.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      for (const row of rows) await employeeApi.remove(row.id);
+      setNotice(`${rows.length} employee record${rows.length === 1 ? '' : 's'} deleted successfully.`); clearSelection(); await load(true);
+    } catch (err) { setError('Some records may not have been deleted. ' + apiError(err)); await load(true); }
+    finally { setBusy(false); }
+  }
+  function exportSelected() { downloadCsv(employees.filter((e) => selectedIds.includes(e.id)), 'nexora-selected-employees-' + new Date().toISOString().slice(0, 10) + '.csv'); }
   function reset() { setForm(empty); setEditing(null); }
   async function submit(e) {
     e.preventDefault(); setBusy(true); setError(''); setNotice('');
@@ -175,11 +197,12 @@ export default function App() {
         </section>
         <section className="panel directory"><div className="panel-head directory-head"><div><h2>Team directory</h2><p>Search, filter, sort and export employee records.</p></div><button className="btn export-btn" onClick={exportCsv} disabled={!filteredEmployees.length}><Download size={15} /> Export CSV ({filteredEmployees.length})</button></div>
           <div className="directory-tools"><label className="search"><Search size={16} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, email, department…" aria-label="Search employees" /></label><label className="filter-control"><span>Department</span><select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)}><option value="ALL">All departments</option>{departments.map((d) => <option key={d} value={d}>{d}</option>)}</select></label><label className="filter-control"><span>Status</span><select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="ALL">All statuses</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option><option value="ON_LEAVE">On leave</option></select></label></div>
-          <div className="results-line"><span>Showing <b>{filteredEmployees.length}</b> of <b>{employees.length}</b> employees</span><button className="clear-filters" onClick={() => { setSearch(''); setDepartmentFilter('ALL'); setStatusFilter('ALL'); }}>Clear filters</button></div>
-          <div className="table-wrap"><table><thead><tr><th><button className="sort-button" onClick={() => { setSortBy('name'); setSortDirection(sortBy === 'name' && sortDirection === 'asc' ? 'desc' : 'asc'); }}>EMPLOYEE ↕</button></th><th><button className="sort-button" onClick={() => { setSortBy('department'); setSortDirection(sortBy === 'department' && sortDirection === 'asc' ? 'desc' : 'asc'); }}>DEPARTMENT ↕</button></th><th><button className="sort-button" onClick={() => { setSortBy('title'); setSortDirection(sortBy === 'title' && sortDirection === 'asc' ? 'desc' : 'asc'); }}>JOB TITLE ↕</button></th><th><button className="sort-button" onClick={() => { setSortBy('status'); setSortDirection(sortBy === 'status' && sortDirection === 'asc' ? 'desc' : 'asc'); }}>STATUS ↕</button></th><th>ACTIONS</th></tr></thead><tbody>
-            {filteredEmployees.map((e) => <tr key={e.id}><td><div className="person"><span className="person-avatar">{initials(e.fullName)}</span><span><b>{e.fullName}</b><small>{e.email}</small></span></div></td><td>{e.department}</td><td>{e.jobTitle}</td><td><span className={'status ' + statusTone(e.status)}>{statusLabel(e.status)}</span></td><td><div className="actions"><button className="view-action" onClick={() => setProfile(e)} aria-label={'View ' + e.fullName}><Eye size={14} /> View</button><button onClick={() => edit(e)} aria-label={'Edit ' + e.fullName}>Edit</button><button className="delete" onClick={() => remove(e)} aria-label={'Delete ' + e.fullName}>Delete</button></div></td></tr>)}
-            {!filteredEmployees.length && <tr><td colSpan="5" className="empty"><span>▤</span><b>{loading ? 'Loading employee records…' : 'No matching employees'}</b><small>{loading ? 'Connecting to your database.' : 'Change your filters or add a new employee.'}</small></td></tr>}
-          </tbody></table></div><div className="table-foot">Nexora Workforce <span>Employee data is stored in your connected database.</span></div>
+          <div className="results-line"><span>Showing <b>{filteredEmployees.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, filteredEmployees.length)}</b> of <b>{filteredEmployees.length}</b> matching · <b>{employees.length}</b> total</span><div className="directory-result-actions"><label className="page-size-control">Rows <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label><button className="clear-filters" onClick={() => { setSearch(''); setDepartmentFilter('ALL'); setStatusFilter('ALL'); setSortBy('name'); setSortDirection('asc'); }}>Reset view</button></div></div>
+          {selectedIds.length > 0 && <div className="bulk-toolbar"><span><CheckSquare size={15} /> <b>{selectedIds.length}</b> selected</span><div><button className="btn secondary" onClick={exportSelected}><Download size={14} /> Export selected</button><button className="btn danger-btn" onClick={bulkDelete} disabled={busy}><Trash2 size={14} /> Delete selected</button><button className="clear-filters" onClick={clearSelection}>Clear selection</button></div></div>}
+          <div className="table-wrap"><table><thead><tr><th className="select-column"><button className="select-all-btn" onClick={togglePageSelection} aria-label={visibleSelected ? 'Deselect current page' : 'Select current page'}>{visibleSelected ? <CheckSquare size={16} /> : <Square size={16} />}</button></th><th><button className="sort-button" onClick={() => { setSortBy('name'); setSortDirection(sortBy === 'name' && sortDirection === 'asc' ? 'desc' : 'asc'); }}>EMPLOYEE ↕</button></th><th><button className="sort-button" onClick={() => { setSortBy('department'); setSortDirection(sortBy === 'department' && sortDirection === 'asc' ? 'desc' : 'asc'); }}>DEPARTMENT ↕</button></th><th><button className="sort-button" onClick={() => { setSortBy('title'); setSortDirection(sortBy === 'title' && sortDirection === 'asc' ? 'desc' : 'asc'); }}>JOB TITLE ↕</button></th><th><button className="sort-button" onClick={() => { setSortBy('status'); setSortDirection(sortBy === 'status' && sortDirection === 'asc' ? 'desc' : 'asc'); }}>STATUS ↕</button></th><th>ACTIONS</th></tr></thead><tbody>
+            {pageEmployees.map((e) => <tr key={e.id}><td className="select-column"><button className="select-all-btn" onClick={() => toggleSelected(e.id)} aria-label={(selectedIds.includes(e.id) ? 'Deselect ' : 'Select ') + e.fullName}>{selectedIds.includes(e.id) ? <CheckSquare size={16} /> : <Square size={16} />}</button></td><td><div className="person"><span className="person-avatar">{initials(e.fullName)}</span><span><b>{e.fullName}</b><small>{e.email}</small></span></div></td><td>{e.department}</td><td>{e.jobTitle}</td><td><span className={'status ' + statusTone(e.status)}>{statusLabel(e.status)}</span></td><td><div className="actions"><button className="view-action" onClick={() => setProfile(e)} aria-label={'View ' + e.fullName}><Eye size={14} /> View</button><button onClick={() => edit(e)} aria-label={'Edit ' + e.fullName}>Edit</button><button className="delete" onClick={() => remove(e)} aria-label={'Delete ' + e.fullName}>Delete</button></div></td></tr>)}
+            {!filteredEmployees.length && <tr><td colSpan="6" className="empty"><span>▤</span><b>{loading ? 'Loading employee records…' : 'No matching employees'}</b><small>{loading ? 'Connecting to your database.' : 'Change your filters or add a new employee.'}</small></td></tr>}
+          </tbody></table></div><div className="pagination"><span>Page <b>{page}</b> of <b>{pageCount}</b></span><div><button className="pagination-btn" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}><ChevronLeft size={15} /> Previous</button><button className="pagination-btn" disabled={page >= pageCount} onClick={() => setPage((p) => Math.min(pageCount, p + 1))}>Next <ChevronRight size={15} /></button></div></div><div className="table-foot">Nexora Workforce <span>Employee data is stored in your connected database.</span></div>
         </section>
       </>}
       <footer>© 2026 Nexora Workforce <span>React · Spring Boot · MySQL</span></footer>

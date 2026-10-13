@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, ArrowRight, BarChart3, BriefcaseBusiness, Building2, CheckCircle2, CircleAlert, Download, Search, Users, UserRoundCheck, UserRoundX, CalendarClock, RefreshCw, Sparkles, X, Printer, Eye, UserPlus, ChevronLeft, ChevronRight, CheckSquare, Square, Trash2 } from 'lucide-react';
+import { Activity, ArrowRight, BarChart3, BriefcaseBusiness, Building2, CheckCircle2, CircleAlert, Download, Search, Users, UserRoundCheck, UserRoundX, CalendarClock, RefreshCw, Sparkles, X, Printer, Eye, UserPlus, ChevronLeft, ChevronRight, CheckSquare, Square, Trash2, FileUp, FileDown } from 'lucide-react';
 import { employeeApi, apiError } from './api.js';
 
 const empty = { fullName: '', email: '', department: 'Engineering', jobTitle: '', status: 'ACTIVE' };
@@ -95,6 +95,42 @@ export default function App() {
     finally { setBusy(false); }
   }
   function exportSelected() { downloadCsv(employees.filter((e) => selectedIds.includes(e.id)), 'nexora-selected-employees-' + new Date().toISOString().slice(0, 10) + '.csv'); }
+  function downloadTemplate() { downloadCsv([], 'nexora-employee-import-template.csv', ['fullName', 'email', 'department', 'jobTitle', 'status']); setNotice('CSV template downloaded. Fill in the rows and import the completed file.'); }
+  async function importCsv(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const rows = parseCsv(await file.text());
+      if (rows.length < 2) throw new Error('The CSV must contain a header row and at least one employee row.');
+      const headers = rows[0].map((value) => String(value).trim().toLowerCase().replace(/[ _-]/g, ''));
+      const index = (names) => headers.findIndex((h) => names.includes(h));
+      const columns = { fullName: index(['fullname','name','employeename']), email: index(['email','emailaddress']), department: index(['department','team']), jobTitle: index(['jobtitle','title','position']), status: index(['status','employmentstatus']) };
+      for (const key of ['fullName','email','department','jobTitle']) if (columns[key] < 0) throw new Error('Missing required CSV column: ' + key + '. Download the template for the correct format.');
+      const records = rows.slice(1).filter((row) => row.some((cell) => String(cell).trim())).map((row, i) => {
+        const get = (key) => String(row[columns[key]] ?? '').trim();
+        const statusRaw = columns.status >= 0 ? String(row[columns.status] ?? '').trim().toUpperCase().replace(/[ -]/g, '_') : 'ACTIVE';
+        const status = ({ ACTIVE: 'ACTIVE', INACTIVE: 'INACTIVE', ON_LEAVE: 'ON_LEAVE', 'ON LEAVE': 'ON_LEAVE' })[statusRaw] || (statusRaw ? null : 'ACTIVE');
+        const record = { fullName: get('fullName'), email: get('email'), department: get('department'), jobTitle: get('jobTitle'), status: status || 'ACTIVE' };
+        if (!record.fullName || !record.email || !record.department || !record.jobTitle || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(record.email)) throw new Error('Invalid required data or email in CSV row ' + (i + 2) + '.');
+        if (!status) throw new Error('Invalid status in CSV row ' + (i + 2) + '. Use ACTIVE, INACTIVE, or ON_LEAVE.');
+        return record;
+      });
+      if (!records.length) throw new Error('No employee rows were found in the CSV.');
+      let created = 0; const failures = [];
+      for (let i = 0; i < records.length; i++) {
+        try { await employeeApi.create(records[i]); created++; }
+        catch (err) { failures.push('row ' + (i + 2) + ': ' + apiError(err)); }
+      }
+      await load(true);
+      if (failures.length) {
+        setNotice(created + ' employee record(s) imported; ' + failures.length + ' row(s) failed.');
+        setError(failures.slice(0, 3).join(' · ') + (failures.length > 3 ? ' · More errors omitted.' : ''));
+      } else setNotice('Successfully imported ' + created + ' employee record(s).');
+    } catch (err) { setError(err.message || apiError(err)); }
+    finally { setBusy(false); }
+  }
   function reset() { setForm(empty); setEditing(null); }
   async function submit(e) {
     e.preventDefault(); setBusy(true); setError(''); setNotice('');
@@ -195,7 +231,7 @@ export default function App() {
             <label>Full name<input name="fullName" value={form.fullName} onChange={change} placeholder="e.g. Priya Sharma" required maxLength="100" /></label><label>Email address<input name="email" type="email" value={form.email} onChange={change} placeholder="priya@company.com" required /></label><label>Department<input name="department" value={form.department} onChange={change} placeholder="e.g. Engineering" required /></label><label>Job title<input name="jobTitle" value={form.jobTitle} onChange={change} placeholder="e.g. Software Engineer" required /></label><label>Status<select name="status" value={form.status} onChange={change}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option><option value="ON_LEAVE">On leave</option></select></label><div className="form-actions"><button className="btn primary" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save changes' : '+ Add employee'}</button></div>
           </form>
         </section>
-        <section className="panel directory"><div className="panel-head directory-head"><div><h2>Team directory</h2><p>Search, filter, sort and export employee records.</p></div><button className="btn export-btn" onClick={exportCsv} disabled={!filteredEmployees.length}><Download size={15} /> Export CSV ({filteredEmployees.length})</button></div>
+        <section className="panel directory"><div className="panel-head directory-head"><div><h2>Team directory</h2><p>Search, filter, sort, import and export employee records.</p></div><div className="directory-head-actions"><button className="btn secondary" onClick={downloadTemplate}><FileDown size={15} /> CSV template</button><button className="btn secondary" onClick={() => document.getElementById('employee-csv-import')?.click()} disabled={busy}><FileUp size={15} /> {busy ? 'Importing…' : 'Import CSV'}</button><input id="employee-csv-import" className="visually-hidden-input" type="file" accept=".csv,text/csv" onChange={importCsv} /><button className="btn export-btn" onClick={exportCsv} disabled={!filteredEmployees.length}><Download size={15} /> Export CSV ({filteredEmployees.length})</button></div></div>
           <div className="directory-tools"><label className="search"><Search size={16} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, email, department…" aria-label="Search employees" /></label><label className="filter-control"><span>Department</span><select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)}><option value="ALL">All departments</option>{departments.map((d) => <option key={d} value={d}>{d}</option>)}</select></label><label className="filter-control"><span>Status</span><select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="ALL">All statuses</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option><option value="ON_LEAVE">On leave</option></select></label></div>
           <div className="results-line"><span>Showing <b>{filteredEmployees.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, filteredEmployees.length)}</b> of <b>{filteredEmployees.length}</b> matching · <b>{employees.length}</b> total</span><div className="directory-result-actions"><label className="page-size-control">Rows <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label><button className="clear-filters" onClick={() => { setSearch(''); setDepartmentFilter('ALL'); setStatusFilter('ALL'); setSortBy('name'); setSortDirection('asc'); }}>Reset view</button></div></div>
           {selectedIds.length > 0 && <div className="bulk-toolbar"><span><CheckSquare size={15} /> <b>{selectedIds.length}</b> selected</span><div><button className="btn secondary" onClick={exportSelected}><Download size={14} /> Export selected</button><button className="btn danger-btn" onClick={bulkDelete} disabled={busy}><Trash2 size={14} /> Delete selected</button><button className="clear-filters" onClick={clearSelection}>Clear selection</button></div></div>}
@@ -209,6 +245,23 @@ export default function App() {
     </main>
     {profile && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProfile(null); }}><section className="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-title"><button className="modal-close" onClick={() => setProfile(null)} aria-label="Close profile"><X size={18} /></button><div className="profile-hero"><span className="profile-avatar">{initials(profile.fullName)}</span><span className={'status ' + statusTone(profile.status)}>{statusLabel(profile.status)}</span><h2 id="profile-title">{profile.fullName}</h2><p>{profile.jobTitle || 'No job title specified'}</p></div><div className="profile-details"><div><small>Email address</small><b>{profile.email || '—'}</b></div><div><small>Department</small><b>{profile.department || '—'}</b></div><div><small>Employee ID</small><b>{profile.id ?? '—'}</b></div></div><div className="profile-actions"><button className="btn secondary" onClick={() => setProfile(null)}>Close</button><button className="btn primary" onClick={() => { setProfile(null); edit(profile); }}>Edit employee</button></div></section></div>}
   </div>;
+}
+function parseCsv(text) {
+  const rows = []; let row = []; let cell = ''; let quoted = false;
+  const source = String(text || '').replace(/^\\uFEFF/, '');
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i];
+    if (char === '"') {
+      if (quoted && source[i + 1] === '"') { cell += '"'; i++; }
+      else quoted = !quoted;
+    } else if (char === ',' && !quoted) { row.push(cell); cell = ''; }
+    else if ((char === '\\n' || char === '\\r') && !quoted) {
+      if (char === '\\r' && source[i + 1] === '\\n') i++;
+      row.push(cell); rows.push(row); row = []; cell = '';
+    } else cell += char;
+  }
+  if (cell.length || row.length) { row.push(cell); rows.push(row); }
+  return rows;
 }
 function EmptyState({ loading, title, detail }) {
   return <div className="analytics-empty"><span className="empty-illustration"><BarChart3 size={24} /></span><b>{loading ? 'Loading analytics…' : title}</b><small>{loading ? 'Fetching the latest workforce records.' : detail}</small></div>;

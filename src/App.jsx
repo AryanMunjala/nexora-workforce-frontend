@@ -113,7 +113,7 @@ export default function App() {
         const statusRaw = columns.status >= 0 ? String(row[columns.status] ?? '').trim().toUpperCase().replace(/[ -]/g, '_') : 'ACTIVE';
         const status = ({ ACTIVE: 'ACTIVE', INACTIVE: 'INACTIVE', ON_LEAVE: 'ON_LEAVE', 'ON LEAVE': 'ON_LEAVE' })[statusRaw] || (statusRaw ? null : 'ACTIVE');
         const record = { fullName: get('fullName'), email: get('email'), department: get('department'), jobTitle: get('jobTitle'), status: status || 'ACTIVE' };
-        if (!record.fullName || !record.email || !record.department || !record.jobTitle || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(record.email)) throw new Error('Invalid required data or email in CSV row ' + (i + 2) + '.');
+        if (!record.fullName || !record.email || !record.department || !record.jobTitle || !/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(record.email)) throw new Error('Invalid required data or email in CSV row ' + (i + 2) + '.');
         if (!status) throw new Error('Invalid status in CSV row ' + (i + 2) + '. Use ACTIVE, INACTIVE, or ON_LEAVE.');
         return record;
       });
@@ -248,15 +248,15 @@ export default function App() {
 }
 function parseCsv(text) {
   const rows = []; let row = []; let cell = ''; let quoted = false;
-  const source = String(text || '').replace(/^\\uFEFF/, '');
+  const source = String(text || '').replace(/^\uFEFF/, '');
   for (let i = 0; i < source.length; i++) {
     const char = source[i];
     if (char === '"') {
       if (quoted && source[i + 1] === '"') { cell += '"'; i++; }
       else quoted = !quoted;
     } else if (char === ',' && !quoted) { row.push(cell); cell = ''; }
-    else if ((char === '\\n' || char === '\\r') && !quoted) {
-      if (char === '\\r' && source[i + 1] === '\\n') i++;
+    else if ((char === '\n' || char === '\r') && !quoted) {
+      if (char === '\r' && source[i + 1] === '\n') i++;
       row.push(cell); rows.push(row); row = []; cell = '';
     } else cell += char;
   }

@@ -100,6 +100,10 @@ export default function App() {
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   function printReport() { window.print(); }
+  function openInsightsSection(sectionId) {
+    setView('insights');
+    window.setTimeout(() => document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+  }
   function openAddForm() { setView('directory'); reset(); window.setTimeout(() => document.getElementById('employee-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); }
   function exportCsv() { downloadCsv(filteredEmployees, 'nexora-employees-' + new Date().toISOString().slice(0, 10) + '.csv'); }
   function exportInsights() { downloadCsv(departmentStats, 'nexora-workforce-insights-' + new Date().toISOString().slice(0, 10) + '.csv', ['department', 'count', 'active', 'inactive', 'onLeave']); }
@@ -110,6 +114,11 @@ export default function App() {
       <div className="nav-label">WORKSPACE</div>
       <button className={'nav-item ' + (view === 'directory' ? 'selected' : '')} onClick={() => setView('directory')}><Users size={17} /> Employee directory</button>
       <button className={'nav-item ' + (view === 'insights' ? 'selected' : '')} onClick={() => setView('insights')}><BarChart3 size={17} /> Workforce insights <ArrowRight size={14} className="nav-arrow" /></button>
+      <div className="nav-label nav-label-spaced">PEOPLE TOOLS</div>
+      <button className="nav-item" onClick={() => openInsightsSection('department-headcount')}><Building2 size={17} /> Department breakdown</button>
+      <button className="nav-item" onClick={() => openInsightsSection('data-quality-panel')}><CheckCircle2 size={17} /> Data quality checks</button>
+      <button className="nav-item" onClick={exportCsv} disabled={!filteredEmployees.length}><Download size={17} /> Export employee CSV</button>
+      <button className="nav-item" onClick={printReport}><Printer size={17} /> Print workforce report</button>
       <div className="sidebar-bottom"><div className="sidebar-foot"><span className="dot"></span> Connected workspace<small>People operations · v2.0</small></div><div className="sidebar-note">People first. Decisions backed by data.</div></div>
     </aside>
     <main className="main">
@@ -132,7 +141,7 @@ export default function App() {
           <article className="insight-metric"><span className="metric-icon green"><Building2 size={18} /></span><span className="metric-label">Largest department</span><strong className="largest-value">{departmentStats[0]?.department || '—'}</strong><small>{departmentStats[0] ? departmentStats[0].count + ' employees' : 'No records yet'}</small><div className="metric-foot">{departmentStats[0] ? pct(departmentStats[0].count, stats.total) + '% of workforce' : 'Add employees to begin'}</div></article>
         </section>
         <section className="insights-grid">
-          <article className="panel analytics-panel"><div className="panel-head"><div><h2>Department headcount</h2><p>Team size and active employee count</p></div><span className="subtle-tag">LIVE DATA</span></div>
+          <article className="panel analytics-panel" id="department-headcount"><div className="panel-head"><div><h2>Department headcount</h2><p>Team size and active employee count</p></div><span className="subtle-tag">LIVE DATA</span></div>
             {departmentStats.length ? <div className="bar-chart">{departmentStats.map((item) => <div className="bar-row" key={item.department}><div className="bar-label"><span>{item.department}</span><b>{item.count} <small>({pct(item.count, stats.total)}%)</small></b></div><div className="bar-track"><div className="bar-fill" style={{ width: (item.count / Math.max(...departmentStats.map((d) => d.count), 1) * 100) + '%' }} /></div><div className="department-active"><span>{item.active} active</span><span>{item.count - item.active} non-active</span></div></div>)}</div> : <EmptyState loading={loading} title="No department data yet" detail="Add employee records to see the distribution." />}
           </article>
           <article className="panel status-panel"><div className="panel-head"><div><h2>Employment status</h2><p>Current workforce breakdown</p></div></div><div className="status-total"><strong>{stats.total}</strong><span>Total employees</span></div>
@@ -142,7 +151,7 @@ export default function App() {
         </section>
         <section className="insights-grid lower-insights">
           <article className="panel"><div className="panel-head"><div><h2>Key takeaways</h2><p>Automatically generated from current workforce data</p></div><span className="takeaway-icon"><Sparkles size={16} /></span></div><div className="takeaway-list">{insights.map((item, i) => <div className="takeaway" key={item}><span>{i + 1}</span><p>{item}</p></div>)}</div></article>
-          <article className="panel"><div className="panel-head"><div><h2>Data quality</h2><p>Quick checks to help keep records reliable</p></div></div>
+          <article className="panel" id="data-quality-panel"><div className="panel-head"><div><h2>Data quality</h2><p>Quick checks to help keep records reliable</p></div></div>
             <div className="quality-row"><span className="quality-icon"><UserRoundX size={16} /></span><div><b>Missing job titles</b><small>Employees without a job title</small></div><strong className={dataQuality.missingTitle ? 'quality-count warn' : 'quality-count'}>{dataQuality.missingTitle}</strong></div>
             <div className="quality-row"><span className="quality-icon"><Building2 size={16} /></span><div><b>Missing departments</b><small>Employees without a department</small></div><strong className={dataQuality.missingDepartment ? 'quality-count warn' : 'quality-count'}>{dataQuality.missingDepartment}</strong></div>
             <div className="quality-row"><span className="quality-icon"><CircleAlert size={16} /></span><div><b>Duplicate emails</b><small>Repeated email addresses</small></div><strong className={dataQuality.duplicateEmails ? 'quality-count warn' : 'quality-count'}>{dataQuality.duplicateEmails}</strong></div>

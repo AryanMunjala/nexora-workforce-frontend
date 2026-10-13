@@ -54,3 +54,15 @@
 .directory-head-actions .btn{white-space:nowrap}
 @media(max-width:900px){.directory-head{align-items:flex-start;flex-direction:column}.directory-head-actions{justify-content:flex-start;width:100%}}
 @media(max-width:560px){.directory-head-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.directory-head-actions .btn{width:100%;padding:10px 7px!important;font-size:9px!important}.directory-head-actions .export-btn{grid-column:1/-1}}
+
+
+/* Actionable KPI cards and bulk status management */
+.stat-clickable{width:100%;font:inherit;text-align:left;cursor:pointer;position:relative;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+.stat-clickable:hover{transform:translateY(-2px);box-shadow:0 10px 24px #1a29410d;border-color:#d7d9ff}
+.stat-clickable:focus-visible{outline:3px solid #8b8df6;outline-offset:2px}
+.stat-clickable small{display:flex;align-items:center;gap:4px}
+.stat-current{box-shadow:inset 0 0 0 1px #bfc2ff!important;border-color:#bfc2ff!important}
+.bulk-status-control{display:flex;align-items:center;gap:7px;color:#68748a;font-size:10px;font-weight:600}
+.bulk-status-control select{max-width:145px;border:1px solid #dfe3ed;border-radius:8px;background:#fff;padding:9px 10px;color:#465168;font:600 10px 'DM Sans',sans-serif;outline:none}
+.bulk-status-control select:focus{border-color:#8b8df6;box-shadow:0 0 0 3px #7779eb1a}
+@media(max-width:700px){.bulk-status-control{width:100%;justify-content:space-between}.bulk-status-control select{flex:1;max-width:none}}

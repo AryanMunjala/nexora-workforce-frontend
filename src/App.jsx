@@ -54,9 +54,9 @@ export default function App() {
     const getValue = (e) => sortBy === 'name' ? e.fullName : sortBy === 'department' ? e.department : sortBy === 'status' ? e.status : e.jobTitle;
     return [...rows].sort((a, b) => String(getValue(a) || '').localeCompare(String(getValue(b) || '')) * (sortDirection === 'asc' ? 1 : -1));
   }, [employees, search, departmentFilter, statusFilter, sortBy, sortDirection]);
+  const pageCount = Math.max(1, Math.ceil(filteredEmployees.length / pageSize));
   useEffect(() => { setPage(1); }, [search, departmentFilter, statusFilter, pageSize]);
   useEffect(() => { setPage((current) => Math.min(current, pageCount)); }, [pageCount]);
-  const pageCount = Math.max(1, Math.ceil(filteredEmployees.length / pageSize));
   const pageEmployees = useMemo(() => filteredEmployees.slice((page - 1) * pageSize, page * pageSize), [filteredEmployees, page, pageSize]);
   const visibleSelected = pageEmployees.length > 0 && pageEmployees.every((e) => selectedIds.includes(e.id));
   const departmentStats = useMemo(() => departments.map((department) => ({
